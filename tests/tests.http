@@ -1,0 +1,78 @@
+### CareSense test API requests
+### Use VS Code REST Client extension or JetBrains HTTP Client.
+### Replace {{email}} with a CareSense account email.
+
+@base = http://localhost:3000
+@email = test@example.com
+
+### --- 0. Catalog -------------------------------------------------------
+GET {{base}}/api/test/list
+Accept: application/json
+
+
+### --- 1. Diabetes (rising glucose) -----------------------------------
+POST {{base}}/api/test/diabetes
+Content-Type: application/json
+
+{ "email": "{{email}}" }
+
+
+### --- 2. Hypertension (progressive BP rise) -------------------------
+POST {{base}}/api/test/hypertension
+Content-Type: application/json
+
+{ "email": "{{email}}" }
+
+
+### --- 3. Heart attack (acute event in last 48h) ----------------------
+POST {{base}}/api/test/heart-attack
+Content-Type: application/json
+
+{ "email": "{{email}}" }
+
+
+### --- 4. Cardiac (HR/SpO2 borderline) -------------------------------
+POST {{base}}/api/test/cardiac
+Content-Type: application/json
+
+{ "email": "{{email}}" }
+
+
+### --- 5. Kidney (CKD with creeping BP) ------------------------------
+POST {{base}}/api/test/kidney
+Content-Type: application/json
+
+{ "email": "{{email}}" }
+
+
+### --- 6. Deteriorating (Ramesh-style) -------------------------------
+POST {{base}}/api/test/deteriorating
+Content-Type: application/json
+
+{ "email": "{{email}}" }
+
+
+### --- 7. Stable (no alerts) -----------------------------------------
+POST {{base}}/api/test/stable
+Content-Type: application/json
+
+{ "email": "{{email}}" }
+
+
+### --- 8. Flush all clinical data for the user -----------------------
+POST {{base}}/api/test/flush
+Content-Type: application/json
+
+{ "email": "{{email}}" }
+
+
+### --- 9. Custom (override age + sex) --------------------------------
+POST {{base}}/api/test/hypertension
+Content-Type: application/json
+
+{
+  "email": "{{email}}",
+  "age": 70,
+  "sex": "F",
+  "full_name": "Lakshmi Priya"
+}

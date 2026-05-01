@@ -1,51 +1,68 @@
-import Link from 'next/link';
-import { SignOutButton } from './SignOutButton';
+import { Sidebar, type NavItem } from './shell/Sidebar';
+import { Topbar } from './shell/Topbar';
+
+const NAV_BY_ROLE: Record<'patient' | 'caregiver' | 'doctor', NavItem[]> = {
+  patient: [
+    { href: '/patient/dashboard', label: 'Dashboard', icon: 'activity' },
+    { href: '/patient/log', label: 'Log Vitals', icon: 'log' },
+    { href: '/patient/trends', label: 'Trends', icon: 'trends' },
+    { href: '/patient/meds', label: 'Medications', icon: 'log' },
+    { href: '/patient/settings', label: 'Settings', icon: 'family' }
+  ],
+  caregiver: [
+    { href: '/caregiver/home', label: 'Family', icon: 'family' },
+    { href: '/caregiver/home#alerts', label: 'Alerts', icon: 'alerts' }
+  ],
+  doctor: [
+    { href: '/doctor/dashboard', label: 'Triage Queue', icon: 'doctor' },
+    { href: '/doctor/dashboard#alerts', label: 'Alerts', icon: 'alerts' }
+  ]
+};
+
+const SUBTITLE: Record<'patient' | 'caregiver' | 'doctor', string> = {
+  patient: 'Personal Care',
+  caregiver: 'Family Monitor',
+  doctor: 'Clinical Intelligence'
+};
+
+const ROLE_LABEL: Record<'patient' | 'caregiver' | 'doctor', string> = {
+  patient: 'Patient',
+  caregiver: 'Caregiver',
+  doctor: 'Clinician'
+};
 
 export function AppShell({
   role,
   children,
-  title
+  title,
+  user
 }: {
   role: 'patient' | 'caregiver' | 'doctor';
   title?: string;
+  user?: { name: string; role?: string };
   children: React.ReactNode;
 }) {
-  const home =
-    role === 'patient' ? '/patient/dashboard' :
-    role === 'caregiver' ? '/caregiver/home' : '/doctor/dashboard';
-
-  const navItems =
-    role === 'patient'
-      ? [
-          { href: '/patient/dashboard', label: 'Today' },
-          { href: '/patient/log', label: 'Log' },
-          { href: '/patient/trends', label: 'Trends' }
-        ]
-      : role === 'caregiver'
-      ? [{ href: '/caregiver/home', label: 'Family' }]
-      : [{ href: '/doctor/dashboard', label: 'Triage' }];
+  const u = {
+    name: user?.name ?? '—',
+    role: user?.role ?? ROLE_LABEL[role]
+  };
 
   return (
-    <div className="min-h-screen bg-muted/30">
-      <header className="border-b bg-background">
-        <div className="container flex h-14 items-center justify-between">
-          <div className="flex items-center gap-6">
-            <Link href={home} className="text-lg font-bold">CareSense</Link>
-            <nav className="flex gap-4 text-sm">
-              {navItems.map((n) => (
-                <Link key={n.href} href={n.href} className="text-muted-foreground hover:text-foreground">
-                  {n.label}
-                </Link>
-              ))}
-            </nav>
-          </div>
-          <SignOutButton />
-        </div>
-      </header>
-      <main className="container py-6">
-        {title && <h1 className="mb-6 text-2xl font-bold tracking-tight">{title}</h1>}
-        {children}
-      </main>
+    <div className="min-h-screen bg-background">
+      <Sidebar
+        items={NAV_BY_ROLE[role]}
+        user={u}
+        subtitle={SUBTITLE[role]}
+      />
+      <div className="md:pl-64">
+        <Topbar user={u} />
+        <main className="px-4 pb-12 pt-6 md:px-8">
+          {title && (
+            <h1 className="mb-6 text-2xl font-bold tracking-tight">{title}</h1>
+          )}
+          {children}
+        </main>
+      </div>
     </div>
   );
 }
