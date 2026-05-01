@@ -42,16 +42,18 @@ export async function DELETE(req: Request) {
     return NextResponse.json({ ok: false, error: 'patient not found' }, { status: 404 });
   }
 
+  // Each Supabase query builder is thenable but not strictly a Promise<T>.
+  // Wrap with Promise.resolve so TS accepts them as Promise<any>[].
   const tasks: Promise<any>[] = [];
   if (scope === 'all' || scope === 'vitals') {
-    tasks.push(supabaseAdmin.from('vitals_log').delete().eq('patient_id', pid));
-    tasks.push(supabaseAdmin.from('patient_baseline').delete().eq('patient_id', pid));
+    tasks.push(Promise.resolve(supabaseAdmin.from('vitals_log').delete().eq('patient_id', pid)));
+    tasks.push(Promise.resolve(supabaseAdmin.from('patient_baseline').delete().eq('patient_id', pid)));
   }
   if (scope === 'all' || scope === 'alerts') {
-    tasks.push(supabaseAdmin.from('alert').delete().eq('patient_id', pid));
+    tasks.push(Promise.resolve(supabaseAdmin.from('alert').delete().eq('patient_id', pid)));
   }
   if (scope === 'all' || scope === 'medications') {
-    tasks.push(supabaseAdmin.from('medication_log').delete().eq('patient_id', pid));
+    tasks.push(Promise.resolve(supabaseAdmin.from('medication_log').delete().eq('patient_id', pid)));
   }
 
   const results = await Promise.all(tasks);
