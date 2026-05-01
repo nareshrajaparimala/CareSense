@@ -1,0 +1,30 @@
+# Minimal supabase CLI config — fill project_id after `supabase link`.
+project_id = "caresense"
+
+[db]
+port = 54322
+
+[api]
+port = 54321
+schemas = ["public"]
+extra_search_path = ["public"]
+
+[studio]
+port = 54323
+
+[auth]
+site_url = "http://localhost:3000"
+additional_redirect_urls = ["http://localhost:3000/auth/callback"]
+jwt_expiry = 3600
+enable_signup = true
+
+[auth.email]
+enable_signup = true
+double_confirm_changes = true
+enable_confirmations = false
+
+[auth.external.google]
+enabled = true
+client_id = "env(SUPABASE_AUTH_GOOGLE_CLIENT_ID)"
+secret = "env(SUPABASE_AUTH_GOOGLE_SECRET)"
+redirect_uri = ""

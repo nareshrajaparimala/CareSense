@@ -1,0 +1,10 @@
+[
+  { "name": "Apollo Hospital Whitefield",   "specialty": ["cardiology","emergency","general"],          "address": "Whitefield, Bengaluru",       "lat": 12.9698, "lng": 77.7500, "beds_available": 4,  "beds_total": 120, "rating": 4.6, "phone": "+91-80-12345001" },
+  { "name": "Manipal Hospital Whitefield",  "specialty": ["cardiology","endocrinology","emergency"],    "address": "Whitefield, Bengaluru",       "lat": 12.9784, "lng": 77.7395, "beds_available": 7,  "beds_total": 150, "rating": 4.5, "phone": "+91-80-12345002" },
+  { "name": "Columbia Asia Whitefield",     "specialty": ["general","emergency"],                       "address": "Whitefield, Bengaluru",       "lat": 12.9991, "lng": 77.7470, "beds_available": 2,  "beds_total": 80,  "rating": 4.3, "phone": "+91-80-12345003" },
+  { "name": "Fortis Cunningham Road",       "specialty": ["cardiology","neurology","emergency"],        "address": "Cunningham Road, Bengaluru",  "lat": 12.9876, "lng": 77.5933, "beds_available": 5,  "beds_total": 200, "rating": 4.4, "phone": "+91-80-12345004" },
+  { "name": "Narayana Health City",         "specialty": ["cardiology","nephrology","emergency"],       "address": "Bommasandra, Bengaluru",      "lat": 12.8024, "lng": 77.6864, "beds_available": 12, "beds_total": 250, "rating": 4.7, "phone": "+91-80-12345005" },
+  { "name": "Sakra World Hospital",         "specialty": ["endocrinology","general","emergency"],       "address": "Marathahalli, Bengaluru",     "lat": 12.9489, "lng": 77.7097, "beds_available": 3,  "beds_total": 100, "rating": 4.4, "phone": "+91-80-12345006" },
+  { "name": "Sparsh Hospital Yeshwanthpur", "specialty": ["orthopedics","emergency","general"],         "address": "Yeshwanthpur, Bengaluru",     "lat": 13.0287, "lng": 77.5410, "beds_available": 6,  "beds_total": 90,  "rating": 4.2, "phone": "+91-80-12345007" },
+  { "name": "BGS Gleneagles Global",        "specialty": ["cardiology","nephrology","emergency"],       "address": "Kengeri, Bengaluru",          "lat": 12.9082, "lng": 77.4842, "beds_available": 8,  "beds_total": 180, "rating": 4.5, "phone": "+91-80-12345008" }
+]
