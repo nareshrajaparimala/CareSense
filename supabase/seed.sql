@@ -1,6 +1,7 @@
--- Seeds 8 Bengaluru hospitals into hospital_mock.
--- Run via Supabase SQL editor OR `supabase db reset` (loads automatically).
+-- Seeds 8 Bengaluru hospitals into hospital_mock. Idempotent — safe to re-run.
 -- Patient/vitals/medication seeding is in scripts/seed.ts.
+
+DELETE FROM public.hospital_mock;
 
 INSERT INTO public.hospital_mock (name, specialty, address, lat, lng, beds_available, beds_total, rating, phone) VALUES
   ('Apollo Hospital Whitefield',     ARRAY['cardiology','emergency','general'],   'Whitefield, Bengaluru',          12.9698, 77.7500, 4,  120, 4.6, '+91-80-12345001'),

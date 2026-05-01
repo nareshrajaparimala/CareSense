@@ -27,7 +27,7 @@ const FALLBACK = (ctx: ExplainerContext): Explanation => ({
 });
 
 export async function generateAlertExplanation(ctx: ExplainerContext): Promise<Explanation> {
-  if (!process.env.ANTHROPIC_API_KEY) return FALLBACK(ctx);
+  if (!process.env.GEMINI_API_KEY) return FALLBACK(ctx);
 
   const prompt = `You are a calm medical AI assistant generating a chronic-care patient alert.
 
@@ -59,23 +59,24 @@ Return ONLY valid JSON, no preamble:
 }`;
 
   try {
-    const resp = await fetch('https://api.anthropic.com/v1/messages', {
+    const model = 'gemini-1.5-flash';
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${process.env.GEMINI_API_KEY}`;
+    const resp = await fetch(url, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': process.env.ANTHROPIC_API_KEY!,
-        'anthropic-version': '2023-06-01'
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        model: 'claude-haiku-4-5-20251001',
-        max_tokens: 500,
-        messages: [{ role: 'user', content: prompt }]
+        contents: [{ role: 'user', parts: [{ text: prompt }] }],
+        generationConfig: {
+          temperature: 0.4,
+          maxOutputTokens: 500,
+          responseMimeType: 'application/json'
+        }
       })
     });
 
     if (!resp.ok) return FALLBACK(ctx);
     const data: any = await resp.json();
-    const text: string = data?.content?.[0]?.text ?? '';
+    const text: string = data?.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
     const json = text.replace(/^```(?:json)?\s*|\s*```$/g, '').trim();
     const parsed = JSON.parse(json);
     return {

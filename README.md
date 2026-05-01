@@ -2,7 +2,7 @@
 
 AI health companion for chronic patients. Web-based: patient logs vitals → personal-baseline anomaly detection → 72h forecast → SHAP-style explainable alerts → graduated escalation → emergency brief with hospital map.
 
-Built with Next.js 14 (App Router), TypeScript, Tailwind, Supabase (Postgres + Auth + RLS), Recharts, and react-leaflet over OpenStreetMap. Claude Haiku 4.5 generates the alert text (with a deterministic fallback when the API is unreachable).
+Built with Next.js 14 (App Router), TypeScript, Tailwind, Supabase (Postgres + Auth + RLS), Recharts, and react-leaflet over OpenStreetMap. Google Gemini 1.5 Flash generates the alert text (with a deterministic fallback when the API is unreachable).
 
 ---
 
@@ -10,7 +10,7 @@ Built with Next.js 14 (App Router), TypeScript, Tailwind, Supabase (Postgres + A
 
 ```bash
 cd Hack/caresense
-cp .env.local.example .env.local   # fill in Supabase + Anthropic keys
+cp .env.local.example .env.local   # fill in Supabase + Gemini keys
 npm install
 ```
 
@@ -100,7 +100,7 @@ fetch last 7d sleep    ──► sleep avg
                 ▼
        decideLevel(severity, consecutiveDays, forecastConf, daysToCritical)
                 ▼
-       if level !== 'stable': Claude generates plain-English title/message/recommendation,
+       if level !== 'stable': Gemini generates plain-English title/message/recommendation,
                               fall back to deterministic copy if LLM unavailable
                 ▼
        insert alert row (idempotent: dedupes within 12h at same level)
@@ -111,7 +111,7 @@ fetch last 7d sleep    ──► sleep avg
 ## Demo flow (90 seconds)
 
 1. Sign in as `priya@caresense.demo` → caregiver home.
-2. Ramesh card shows 🔴 **Risk** with title from Claude.
+2. Ramesh card shows 🔴 **Risk** with title from Gemini.
 3. Click → patient detail. SHAP breakdown: BP trend ~42%, missed Amlodipine ~35%, sleep deficit ~23%. Confidence badge ~84%.
 4. Forecast chart: BP trending toward 160 with shaded interval; "critical in 2.3 days".
 5. Click **View Emergency Brief** → patient profile, current vitals, missed-dose flags, OSM map with 5 hospitals (recommended in green).
@@ -125,4 +125,4 @@ fetch last 7d sleep    ──► sleep avg
 - RLS is on for every patient-scoped table. Patients see their own data; caregivers see linked patients via `caregiver_link`; doctors see everyone (MVP simplification).
 - `lib/supabase/admin.ts` uses the service-role key — only imported by `app/api/*` and seed scripts.
 - The Leaflet map is `dynamic`-imported with `ssr: false` to avoid hydration issues.
-- LLM model is `claude-haiku-4-5-20251001`; fallback copy is deterministic so the demo never breaks.
+- LLM model is `gemini-1.5-flash`; fallback copy is deterministic so the demo never breaks.

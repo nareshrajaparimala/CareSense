@@ -15,11 +15,21 @@ const ROLES: { value: Role; title: string; sub: string }[] = [
   { value: 'doctor', title: 'I am a doctor', sub: 'Triage chronic patients between visits.' }
 ];
 
-export function OnboardingForm({ userId, email }: { userId: string; email: string }) {
+export function OnboardingForm({
+  userId,
+  email,
+  prefillRole = null,
+  prefillName = ''
+}: {
+  userId: string;
+  email: string;
+  prefillRole?: Role | null;
+  prefillName?: string;
+}) {
   const router = useRouter();
   const supabase = createClient();
-  const [role, setRole] = useState<Role | null>(null);
-  const [fullName, setFullName] = useState('');
+  const [role, setRole] = useState<Role | null>(prefillRole);
+  const [fullName, setFullName] = useState(prefillName);
   const [age, setAge] = useState('');
   const [sex, setSex] = useState<'M' | 'F' | 'Other'>('M');
   const [conditions, setConditions] = useState<string[]>([]);

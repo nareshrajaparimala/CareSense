@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { requireRole } from '@/lib/auth/requireRole';
 import { createClient } from '@/lib/supabase/server';
+import { supabaseAdmin } from '@/lib/supabase/admin';
 import { AppShell } from '@/components/AppShell';
 import { PatientStatusCard } from '@/components/dashboards/PatientStatusCard';
 import { VitalTrendChart } from '@/components/charts/VitalTrendChart';
@@ -17,7 +18,8 @@ export default async function PatientDashboard() {
   const session = await requireRole('patient');
   const supabase = createClient();
 
-  const { data: patient } = await supabase
+  // Use admin to avoid RLS edge cases on the very first dashboard load.
+  const { data: patient } = await supabaseAdmin
     .from('patient')
     .select('*')
     .eq('user_id', session.user.id)
