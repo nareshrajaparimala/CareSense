@@ -123,7 +123,7 @@ export function Sidebar({
 
         <div className="space-y-1 border-t border-sidebar-border px-3 py-4">
           <Link
-            href="/"
+            href="/support"
             className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-sidebar-muted hover:bg-sidebar-active hover:text-foreground"
           >
             <HelpCircle className="h-[18px] w-[18px]" />

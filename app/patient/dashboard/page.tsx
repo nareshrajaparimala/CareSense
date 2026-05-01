@@ -7,6 +7,7 @@ import { analyzePatient } from '@/lib/services/analyze';
 import { AppShell } from '@/components/AppShell';
 import { VitalTile } from '@/components/dashboards/VitalTile';
 import { StabilityFactors } from '@/components/dashboards/StabilityFactors';
+import { NotificationDeliveryFeed } from '@/components/dashboards/NotificationDeliveryFeed';
 import { HotlineCard } from '@/components/dashboards/HotlineCard';
 import { CareActivityTable } from '@/components/dashboards/CareActivityTable';
 import { AIDailySuggestion } from '@/components/dashboards/AIDailySuggestion';
@@ -240,6 +241,7 @@ export default async function PatientDashboard() {
               conditions={conditions}
             />
             <StabilityFactors factors={factors} />
+            <NotificationDeliveryFeed />
             <HotlineCard patientId={patient.id} />
           </div>
         </div>

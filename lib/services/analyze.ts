@@ -5,6 +5,7 @@ import { computeShap } from '@/lib/ai/shap';
 import { forecast72hr } from '@/lib/ai/forecast';
 import { decideLevel } from '@/lib/ai/escalation';
 import { generateAlertExplanation } from '@/lib/ai/llm-explainer';
+import { dispatchAlertNotifications } from '@/lib/notify/sendAlert';
 import { CRITICAL_BP_SYSTOLIC } from '@/lib/constants';
 import type { Alert, AlertLevel, Baseline, Forecast, ShapBreakdown, Vital } from '@/types/domain';
 
@@ -160,6 +161,14 @@ export async function analyzePatient(patientId: string): Promise<AnalyzeResult> 
         .single();
 
       alert = inserted as Alert | null;
+
+      // Best-effort SMS/WhatsApp dispatch — must never block the response.
+      // Skips low-severity levels and silently no-ops if Twilio isn't configured.
+      if (alert) {
+        dispatchAlertNotifications(patientId, alert).catch((err) => {
+          console.error('[notify] dispatch failed', err);
+        });
+      }
     }
   }
 

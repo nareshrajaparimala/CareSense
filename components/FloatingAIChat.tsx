@@ -16,6 +16,14 @@ export function FloatingAIChat() {
   const [voiceHint, setVoiceHint] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement | null>(null);
   const recognitionRef = useRef<any>(null);
+  const listenTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const clearListenTimer = () => {
+    if (listenTimerRef.current) {
+      clearTimeout(listenTimerRef.current);
+      listenTimerRef.current = null;
+    }
+  };
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -50,6 +58,15 @@ export function FloatingAIChat() {
   async function startListening() {
     setVoiceHint(null);
 
+    // If a previous recognition is somehow still alive, abort it before starting a new one.
+    // This is the #1 cause of the "stuck mic" — the old session never fired onend.
+    if (recognitionRef.current) {
+      try { recognitionRef.current.abort?.(); } catch { /* ignore */ }
+      try { recognitionRef.current.stop?.(); } catch { /* ignore */ }
+      recognitionRef.current = null;
+    }
+    clearListenTimer();
+
     const SR =
       (typeof window !== 'undefined' && ((window as any).SpeechRecognition || (window as any).webkitSpeechRecognition)) || null;
     if (!SR) {
@@ -81,10 +98,25 @@ export function FloatingAIChat() {
     recognition.onstart = () => {
       setListening(true);
       setVoiceHint('Listening… speak now.');
+      // Hard timeout — if the browser hangs without firing onend (happens on
+      // macOS Chrome occasionally), force-stop after 12s so the UI never freezes.
+      clearListenTimer();
+      listenTimerRef.current = setTimeout(() => {
+        try { recognition.stop?.(); } catch { /* ignore */ }
+        setListening(false);
+        setVoiceHint("No speech detected — tap the mic to try again.");
+        recognitionRef.current = null;
+      }, 12000);
     };
-    recognition.onend = () => setListening(false);
+    recognition.onend = () => {
+      setListening(false);
+      clearListenTimer();
+      recognitionRef.current = null;
+    };
     recognition.onerror = (e: any) => {
       setListening(false);
+      clearListenTimer();
+      recognitionRef.current = null;
       const code = e?.error ?? 'unknown';
       const msg =
         code === 'not-allowed' || code === 'service-not-allowed'
@@ -113,9 +145,24 @@ export function FloatingAIChat() {
   }
 
   function stopListening() {
-    recognitionRef.current?.stop();
+    try { recognitionRef.current?.stop?.(); } catch { /* ignore */ }
+    try { recognitionRef.current?.abort?.(); } catch { /* ignore */ }
+    recognitionRef.current = null;
+    clearListenTimer();
     setListening(false);
   }
+
+  // Stop listening when the chat panel closes — prevents an orphan listener.
+  useEffect(() => {
+    if (!open && listening) stopListening();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
+
+  // Clean up on unmount.
+  useEffect(() => {
+    return () => stopListening();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <>

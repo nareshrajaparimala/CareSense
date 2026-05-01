@@ -1,6 +1,6 @@
 'use client';
 
-import { Download, Printer } from 'lucide-react';
+import { Download, Printer, MessageSquare } from 'lucide-react';
 
 type Patient = {
   full_name: string;
@@ -54,6 +54,28 @@ export function EmergencyReport({
     return Math.round((taken / medLogs.length) * 100);
   })();
 
+  // Build a short WhatsApp summary (the PDF itself is shared via "Save as PDF" → attach manually).
+  const whatsappSummary = [
+    `*CareSense Emergency Report — ${patient.full_name}*`,
+    `${patient.age ?? '?'}y ${patient.sex ?? ''}${patient.conditions.length ? ` · ${patient.conditions.join(', ')}` : ''}`,
+    last
+      ? `Latest vitals (${new Date(last.logged_at).toLocaleString()}): BP ${last.bp_systolic ?? '-'}/${last.bp_diastolic ?? '-'}, glucose ${last.glucose_mgdl ?? '-'} mg/dL, HR ${last.heart_rate ?? '-'}, SpO₂ ${last.spo2 ?? '-'}%.`
+      : 'No vitals logged yet.',
+    medications.length ? `Meds: ${medications.map((m) => `${m.name}${m.dosage ? ` ${m.dosage}` : ''}`).join(', ')}.` : '',
+    adherence != null ? `Adherence (recent): ${adherence}%.` : '',
+    patient.allergies.length ? `Allergies: ${patient.allergies.join(', ')}.` : '',
+    patient.emergency_contact_name ? `Emergency contact: ${patient.emergency_contact_name}${patient.emergency_contact_phone ? ` · ${patient.emergency_contact_phone}` : ''}.` : '',
+    `Generated ${generatedAt} via CareSense.`
+  ].filter(Boolean).join('\n');
+
+  const shareWhatsApp = (toPhone?: string | null) => {
+    const text = encodeURIComponent(whatsappSummary);
+    // wa.me works on mobile and desktop; if a number is provided, prefilled to that contact.
+    const phoneDigits = toPhone ? toPhone.replace(/[^\d]/g, '') : '';
+    const url = phoneDigits ? `https://wa.me/${phoneDigits}?text=${text}` : `https://wa.me/?text=${text}`;
+    window.open(url, '_blank', 'noopener,noreferrer');
+  };
+
   return (
     <main className="mx-auto max-w-4xl bg-white p-8 text-black">
       <div className="no-print mb-6 flex flex-wrap gap-2">
@@ -73,6 +95,15 @@ export function EmergencyReport({
           <Printer className="h-4 w-4" />
           Print
         </button>
+        <button
+          type="button"
+          onClick={() => shareWhatsApp(patient.emergency_contact_phone)}
+          className="inline-flex items-center gap-2 rounded-md bg-[#25D366] px-4 py-2 text-sm font-semibold text-white hover:opacity-90"
+          title={patient.emergency_contact_phone ? `Share with ${patient.emergency_contact_name ?? 'emergency contact'}` : 'Share via WhatsApp'}
+        >
+          <MessageSquare className="h-4 w-4" />
+          Share on WhatsApp
+        </button>
         <a
           href="/patient/dashboard"
           className="inline-flex items-center gap-2 rounded-md border px-4 py-2 text-sm font-semibold hover:bg-muted"
@@ -80,6 +111,9 @@ export function EmergencyReport({
           Back to dashboard
         </a>
       </div>
+      <p className="no-print -mt-3 mb-4 text-[11px] text-muted-foreground">
+        Tip: tap <strong>Save as PDF</strong> first to download, then attach the saved file in WhatsApp after the prefilled message opens.
+      </p>
 
       <header className="mb-6 border-b-2 border-[#1E3FBF] pb-4">
         <div className="flex items-start justify-between">

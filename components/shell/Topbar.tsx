@@ -27,10 +27,17 @@ function relTime(iso: string): string {
 }
 
 export function Topbar({
-  user
+  user,
+  role
 }: {
   user: { name: string; role: string };
+  role?: 'patient' | 'caregiver' | 'doctor';
 }) {
+  const settingsHref =
+    role === 'patient' ? '/patient/settings' :
+    role === 'doctor' ? '/doctor/dashboard' :
+    role === 'caregiver' ? '/caregiver/home' :
+    '/patient/settings';
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [items, setItems] = useState<Notification[]>([]);
@@ -124,7 +131,7 @@ export function Topbar({
           {open && (
             <div
               role="menu"
-              className="absolute right-0 mt-2 w-96 max-w-[90vw] origin-top-right overflow-hidden rounded-lg border bg-popover text-popover-foreground shadow-lg animate-in fade-in slide-in-from-top-1"
+              className="absolute right-0 mt-2 w-96 max-w-[90vw] origin-top-right overflow-hidden rounded-xl border border-white/40 bg-white/85 text-popover-foreground shadow-2xl ring-1 ring-black/5 backdrop-blur-xl backdrop-saturate-150 animate-in fade-in slide-in-from-top-1"
             >
               <div className="flex items-center justify-between border-b px-4 py-3">
                 <span className="text-sm font-semibold">Notifications</span>
@@ -183,13 +190,13 @@ export function Topbar({
           )}
         </div>
 
-        <button
-          type="button"
+        <a
+          href={settingsHref}
           className="hidden h-10 w-10 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground sm:flex"
           aria-label="Settings"
         >
           <Settings className="h-5 w-5" />
-        </button>
+        </a>
         <div className="flex items-center gap-3 rounded-lg pl-2">
           <div className="hidden text-right sm:block">
             <div className="text-sm font-semibold leading-tight">{user.name}</div>

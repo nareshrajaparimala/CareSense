@@ -3,6 +3,7 @@ import { supabaseAdmin } from '@/lib/supabase/admin';
 import { analyzePatient } from '@/lib/services/analyze';
 import { AppShell } from '@/components/AppShell';
 import { DoctorPatientRow } from '@/components/dashboards/DoctorPatientRow';
+import { NotificationDeliveryFeed } from '@/components/dashboards/NotificationDeliveryFeed';
 import { Card, CardContent } from '@/components/ui/card';
 import { LEVEL_PRIORITY } from '@/lib/constants';
 import type { AlertLevel } from '@/types/domain';
@@ -114,6 +115,8 @@ export default async function DoctorDashboard() {
             </div>
           </CardContent>
         </Card>
+
+        <NotificationDeliveryFeed showTester />
 
         <Card>
           <CardContent className="p-4">

@@ -56,7 +56,7 @@ export function AppShell({
         subtitle={SUBTITLE[role]}
       />
       <div className="md:pl-64">
-        <Topbar user={u} />
+        <Topbar user={u} role={role} />
         <main className="px-4 pb-12 pt-6 md:px-8">
           {title && (
             <h1 className="mb-6 text-2xl font-bold tracking-tight">{title}</h1>
