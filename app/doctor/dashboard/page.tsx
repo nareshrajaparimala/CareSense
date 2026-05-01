@@ -1,5 +1,6 @@
 import { requireRole } from '@/lib/auth/requireRole';
 import { supabaseAdmin } from '@/lib/supabase/admin';
+import { analyzePatient } from '@/lib/services/analyze';
 import { AppShell } from '@/components/AppShell';
 import { DoctorPatientRow } from '@/components/dashboards/DoctorPatientRow';
 import { Card, CardContent } from '@/components/ui/card';
@@ -19,7 +20,7 @@ export default async function DoctorDashboard() {
 
   const enriched = await Promise.all(
     ((patients ?? []) as any[]).map(async (p) => {
-      const [{ data: profile }, { data: alerts }, { data: lastVitals }] = await Promise.all([
+      const [{ data: profile }, { data: openAlerts }, { data: lastVitals }, analysis] = await Promise.all([
         p.user_id
           ? supabaseAdmin.from('user_profile').select('full_name').eq('id', p.user_id).maybeSingle()
           : Promise.resolve({ data: null as any }),
@@ -36,9 +37,18 @@ export default async function DoctorDashboard() {
           .eq('patient_id', p.id)
           .order('logged_at', { ascending: false })
           .limit(1)
-          .maybeSingle()
+          .maybeSingle(),
+        // Live re-analysis — guarantees the queue reflects current vitals,
+        // not just whatever was last persisted in the alert table.
+        analyzePatient(p.id).catch(() => null)
       ]);
-      const level: AlertLevel = (alerts as any[] | null)?.[0]?.level ?? 'stable';
+      // Pick the highest level from: live analysis, persisted open alert, or stable.
+      const persistedLevel: AlertLevel = (openAlerts as any[] | null)?.[0]?.level ?? 'stable';
+      const liveLevel: AlertLevel = analysis?.level ?? 'stable';
+      const level: AlertLevel =
+        (LEVEL_PRIORITY[liveLevel] ?? 0) >= (LEVEL_PRIORITY[persistedLevel] ?? 0)
+          ? liveLevel
+          : persistedLevel;
       return {
         id: p.id,
         name: (profile as any)?.full_name ?? 'Patient',
@@ -52,6 +62,20 @@ export default async function DoctorDashboard() {
   );
 
   enriched.sort((a, b) => (LEVEL_PRIORITY[b.level] ?? 0) - (LEVEL_PRIORITY[a.level] ?? 0));
+
+  // Pull recent open alerts across all patients for the alert feed.
+  const { data: rawAlerts } = await supabaseAdmin
+    .from('alert')
+    .select('id, patient_id, level, title, message, recommendation, created_at, status')
+    .eq('status', 'open')
+    .order('created_at', { ascending: false })
+    .limit(20);
+
+  const alertNameById = new Map(enriched.map((p) => [p.id, p.name]));
+  const recentAlerts = (rawAlerts ?? []).map((a: any) => ({
+    ...a,
+    patient_name: alertNameById.get(a.patient_id) ?? 'Patient'
+  }));
 
   const counts = {
     critical: enriched.filter((p) => p.level === 'critical').length,
@@ -88,6 +112,53 @@ export default async function DoctorDashboard() {
                 enriched.map((row) => <DoctorPatientRow key={row.id} {...row} />)
               )}
             </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-4">
+            <div className="mb-3 flex items-center justify-between">
+              <h2 className="text-base font-bold">Recent Alerts</h2>
+              <span className="text-xs text-muted-foreground">
+                {recentAlerts.length} open across all patients
+              </span>
+            </div>
+            {recentAlerts.length === 0 ? (
+              <p className="rounded-md border border-dashed p-6 text-center text-sm text-muted-foreground">
+                No open alerts. New alerts from any patient will appear here as they fire.
+              </p>
+            ) : (
+              <ul className="divide-y">
+                {recentAlerts.map((a: any) => (
+                  <li key={a.id} className="flex items-start gap-3 py-3">
+                    <span
+                      className={`mt-1 h-2.5 w-2.5 shrink-0 rounded-full bg-status-${a.level}`}
+                      aria-label={a.level}
+                    />
+                    <div className="flex-1">
+                      <div className="flex items-center justify-between gap-2">
+                        <a
+                          href={`/caregiver/patient/${a.patient_id}`}
+                          className="text-sm font-semibold hover:underline"
+                        >
+                          {a.patient_name}
+                        </a>
+                        <span className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                          {a.level} · {new Date(a.created_at).toLocaleString()}
+                        </span>
+                      </div>
+                      <p className="mt-0.5 text-sm font-medium">{a.title}</p>
+                      <p className="text-xs text-muted-foreground">{a.message}</p>
+                      {a.recommendation && (
+                        <p className="mt-1 text-xs italic text-muted-foreground">
+                          → {a.recommendation}
+                        </p>
+                      )}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
           </CardContent>
         </Card>
       </div>

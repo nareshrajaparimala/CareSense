@@ -9,7 +9,7 @@ const COLOR = {
 const LABEL = {
   vital_change: 'Vital trend',
   medication: 'Medication adherence',
-  lifestyle: 'Lifestyle (sleep)'
+  lifestyle: 'Symptoms & sleep'
 } as const;
 
 export function ShapBreakdown({ shap }: { shap: ShapBreakdownT }) {
@@ -18,16 +18,23 @@ export function ShapBreakdown({ shap }: { shap: ShapBreakdownT }) {
     <div className="space-y-3">
       <p className="text-sm font-medium">Why this alert?</p>
       {rows.map((k) => {
-        const pct = Math.round(shap[k] * 100);
+        const pct = Math.round((shap[k] ?? 0) * 100);
+        const detail = shap.details?.[k];
+        const available = shap.available?.[k] ?? true;
         return (
           <div key={k} className="space-y-1">
             <div className="flex justify-between text-xs">
               <span>{LABEL[k]}</span>
-              <span className="font-medium">{pct}%</span>
+              <span className="font-medium">{available ? `${pct}%` : 'N/A'}</span>
             </div>
             <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
-              <div className={`h-full ${COLOR[k]}`} style={{ width: `${pct}%` }} />
+              {available && (
+                <div className={`h-full ${COLOR[k]}`} style={{ width: `${pct}%` }} />
+              )}
             </div>
+            {detail && (
+              <p className="text-[11px] text-muted-foreground">{detail}</p>
+            )}
           </div>
         );
       })}

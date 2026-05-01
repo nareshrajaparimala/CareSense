@@ -9,6 +9,7 @@ import { VitalTrendChart } from '@/components/charts/VitalTrendChart';
 import { ForecastChart } from '@/components/charts/ForecastChart';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { buttonVariants } from '@/components/ui/button';
+import { ClearHistoryButton } from '@/components/doctor/ClearHistoryButton';
 import type { Alert, AlertLevel } from '@/types/domain';
 
 export const dynamic = 'force-dynamic';
@@ -22,11 +23,11 @@ export default async function CaregiverPatientPage({ params }: { params: { id: s
   if (session.role === 'caregiver') {
     const { data: link } = await supabaseAdmin
       .from('caregiver_link')
-      .select('id')
+      .select('id, status')
       .eq('caregiver_id', session.user.id)
       .eq('patient_id', patientId)
       .maybeSingle();
-    if (!link) redirect('/caregiver/home');
+    if (!link || (link as any).status !== 'accepted') redirect('/caregiver/home');
   }
 
   const [{ data: patient }, { data: vitals }, { data: baseline }, { data: alerts }] = await Promise.all([
@@ -59,13 +60,16 @@ export default async function CaregiverPatientPage({ params }: { params: { id: s
           subline={(patient as any).conditions?.join(' + ')}
         />
 
-        {(level === 'critical' || level === 'risk') && (
-          <div className="flex justify-end">
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          {(level === 'critical' || level === 'risk') && (
             <Link href={`/emergency/${patientId}`} className={buttonVariants({ variant: 'destructive', size: 'lg' })}>
               View Emergency Brief →
             </Link>
-          </div>
-        )}
+          )}
+          {session.role === 'doctor' && (
+            <ClearHistoryButton patientId={patientId} patientName={patientName} />
+          )}
+        </div>
 
         {openAlert && <AlertCard alert={openAlert} />}
 

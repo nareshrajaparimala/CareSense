@@ -1,27 +1,56 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 
-const DEMO_EMAILS = [
-  { email: 'priya@caresense.demo', label: 'Priya (Caregiver)' },
-  { email: 'ramesh@caresense.demo', label: 'Ramesh (Patient — deteriorating)' },
-  { email: 'lakshmi@caresense.demo', label: 'Lakshmi (Patient — stable)' },
-  { email: 'suresh@caresense.demo', label: 'Suresh (Patient — resolved)' },
-  { email: 'dr.shah@caresense.demo', label: 'Dr. Shah (Doctor)' }
+// Demo accounts seeded by scripts/seed.ts — password is `password123`.
+// Used for instant one-click demo sign-in (no magic-link round-trip).
+const DEMO_PASSWORD = 'password123';
+const DEMO_EMAILS: Array<{ email: string; label: string; role: 'patient' | 'caregiver' | 'doctor' }> = [
+  { email: 'priya@caresense.demo',   label: 'Priya (Caregiver)',                    role: 'caregiver' },
+  { email: 'ramesh@caresense.demo',  label: 'Ramesh (Patient — deteriorating)',     role: 'patient' },
+  { email: 'lakshmi@caresense.demo', label: 'Lakshmi (Patient — stable)',           role: 'patient' },
+  { email: 'suresh@caresense.demo',  label: 'Suresh (Patient — resolved)',          role: 'patient' },
+  { email: 'dr.shah@caresense.demo', label: 'Dr. Shah (Doctor)',                    role: 'doctor' }
 ];
+
+const HOME_FOR_ROLE: Record<string, string> = {
+  patient: '/patient/dashboard',
+  caregiver: '/caregiver/dashboard',
+  doctor: '/doctor/dashboard'
+};
 
 export function LoginForm() {
   const supabase = createClient();
+  const router = useRouter();
   const [email, setEmail] = useState('');
   const [sent, setSent] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [demoLoadingFor, setDemoLoadingFor] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const redirect = typeof window !== 'undefined' ? `${location.origin}/auth/callback` : '';
+
+  const signInDemo = async (acct: typeof DEMO_EMAILS[number]) => {
+    setError(null);
+    setDemoLoadingFor(acct.email);
+    const { error } = await supabase.auth.signInWithPassword({
+      email: acct.email,
+      password: DEMO_PASSWORD
+    });
+    if (error) {
+      setDemoLoadingFor(null);
+      setError(`Demo sign-in failed: ${error.message}. Run \`npm run seed\` to provision demo accounts.`);
+      return;
+    }
+    // Land directly on the role's dashboard — no email round-trip.
+    router.push(HOME_FOR_ROLE[acct.role] ?? '/');
+    router.refresh();
+  };
 
   const sendMagicLink = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -84,22 +113,30 @@ export function LoginForm() {
 
       {error && <p className="text-sm text-destructive">{error}</p>}
 
-      <details className="rounded-md border bg-muted/30 p-3 text-xs">
-        <summary className="cursor-pointer font-medium">Demo emails (click to fill)</summary>
-        <ul className="mt-2 space-y-1">
+      <details className="rounded-md border bg-muted/30 p-3 text-xs" open>
+        <summary className="cursor-pointer font-medium">
+          Demo accounts — instant sign-in (no email needed)
+        </summary>
+        <ul className="mt-3 space-y-1.5">
           {DEMO_EMAILS.map((a) => (
             <li key={a.email}>
               <button
                 type="button"
-                onClick={() => setEmail(a.email)}
-                className="text-left text-primary hover:underline"
+                disabled={demoLoadingFor !== null}
+                onClick={() => signInDemo(a)}
+                className="w-full rounded-md border bg-background px-3 py-2 text-left text-xs hover:border-primary hover:bg-accent disabled:opacity-50"
               >
-                {a.email}
-              </button>{' '}
-              <span className="text-muted-foreground">— {a.label}</span>
+                <span className="font-medium text-primary">
+                  {demoLoadingFor === a.email ? 'Signing in…' : a.label}
+                </span>
+                <span className="ml-1 text-muted-foreground">— {a.email}</span>
+              </button>
             </li>
           ))}
         </ul>
+        <p className="mt-2 text-[10px] text-muted-foreground">
+          Sign-in uses the seeded password from <code>scripts/seed.ts</code>. Real users still get a magic link above.
+        </p>
       </details>
     </div>
   );

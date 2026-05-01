@@ -3,7 +3,7 @@ export type ApiOk<T> = { ok: true; data: T };
 export type ApiErr = { ok: false; error: string };
 export type ApiResp<T> = ApiOk<T> | ApiErr;
 
-import type { Alert, Forecast, Hospital, EmergencyBrief, Vital, AlertLevel, ShapBreakdown } from './domain';
+import type { Alert, Forecast, Hospital, EmergencyBrief, Vital, AlertLevel, ShapBreakdown, Baseline } from './domain';
 
 export type LogVitalsBody = {
   patient_id: string;
@@ -28,6 +28,8 @@ export type AnalyzeResp = {
   shap: ShapBreakdown | null;
   forecast: Forecast | null;
   alert: Alert | null;
+  baseline?: Baseline | null;
+  insufficientData?: { current: number; required: number };
 };
 
 export type ForecastResp = Forecast | null;

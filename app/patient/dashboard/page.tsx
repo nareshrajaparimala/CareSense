@@ -1,20 +1,22 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { Plus, TrendingUp } from 'lucide-react';
+import { Plus, TrendingUp, FileText } from 'lucide-react';
 import { requireRole } from '@/lib/auth/requireRole';
 import { supabaseAdmin } from '@/lib/supabase/admin';
+import { analyzePatient } from '@/lib/services/analyze';
 import { AppShell } from '@/components/AppShell';
 import { VitalTile } from '@/components/dashboards/VitalTile';
 import { StabilityFactors } from '@/components/dashboards/StabilityFactors';
 import { HotlineCard } from '@/components/dashboards/HotlineCard';
 import { CareActivityTable } from '@/components/dashboards/CareActivityTable';
 import { AIDailySuggestion } from '@/components/dashboards/AIDailySuggestion';
+import { DailyRoutineChecklist } from '@/components/dashboards/DailyRoutineChecklist';
 import { ForecastChart } from '@/components/charts/ForecastChart';
 import { CalendarTimeline } from '@/components/calendar/CalendarTimeline';
 import { AlertCard } from '@/components/alerts/AlertCard';
 import { LEVEL_LABEL, LEVEL_PRIORITY } from '@/lib/constants';
 import { cn } from '@/lib/utils';
-import type { Alert, AlertLevel, Forecast } from '@/types/domain';
+import type { Alert, AlertLevel } from '@/types/domain';
 
 // Always render fresh — every visit must reflect the latest log.
 export const dynamic = 'force-dynamic';
@@ -31,36 +33,58 @@ export default async function PatientDashboard() {
     .maybeSingle();
   if (!patient) redirect('/onboarding');
 
+  // Run analysis live so forecast + SHAP are always available, even when stable.
+  const analysis = await analyzePatient(patient.id);
+
   const [
     { data: lastVitals },
-    { data: baseline },
     { data: alerts },
-    { data: medLogs }
+    { data: medLogs },
+    { data: meds }
   ] = await Promise.all([
     supabaseAdmin.from('vitals_log').select('*').eq('patient_id', patient.id).order('logged_at', { ascending: false }).limit(14),
-    supabaseAdmin.from('patient_baseline').select('*').eq('patient_id', patient.id).maybeSingle(),
     supabaseAdmin.from('alert').select('*').eq('patient_id', patient.id).eq('status', 'open').order('created_at', { ascending: false }).limit(3),
-    supabaseAdmin.from('medication_log').select('*, medication:medication_id(name)').eq('patient_id', patient.id).order('logged_at', { ascending: false }).limit(5)
+    supabaseAdmin.from('medication_log').select('*, medication:medication_id(name)').eq('patient_id', patient.id).order('logged_at', { ascending: false }).limit(5),
+    supabaseAdmin.from('medication').select('id, name, dosage, frequency').eq('patient_id', patient.id)
   ]);
+
+  const medications = (meds ?? []) as Array<{ id: string; name: string; dosage: string | null; frequency: string | null }>;
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const vitalsLoggedToday = (lastVitals ?? []).some((v: any) => v.logged_at?.slice(0, 10) === todayStr);
+  const conditions = ((patient as any).conditions ?? []) as string[];
 
   const vitals = (lastVitals ?? []) as any[];
   const latest = vitals[0];
   const openAlerts = (alerts ?? []) as Alert[];
-  const topLevel = (openAlerts[0]?.level ?? 'stable') as AlertLevel;
-  const forecast: Forecast | null = (openAlerts[0]?.forecast_72hr as Forecast | null) ?? null;
+  const topLevel = (analysis.level ?? openAlerts[0]?.level ?? 'stable') as AlertLevel;
 
-  const shap = openAlerts[0]?.shap_breakdown;
+  const baseline = analysis.baseline;
+  const forecast = analysis.forecast;
+  const shap = analysis.shap;
+
+  // Build factors. If no shap (insufficient data), pass empty so UI shows "Not enough data yet".
   const factors = shap
     ? [
-        { label: 'Vital Trend', impact: -Math.round((shap.vital_change ?? 0) * 100) },
-        { label: 'Medication Adherence', impact: Math.round(((1 - (shap.medication ?? 0)) * 100) - 50) },
-        { label: 'Lifestyle', impact: Math.round((1 - (shap.lifestyle ?? 0)) * 100 - 50) }
+        {
+          label: 'Vital Trend',
+          value: shap.vital_change ?? 0,
+          detail: shap.details?.vital_change ?? '',
+          available: shap.available?.vital_change ?? true
+        },
+        {
+          label: 'Medication Adherence',
+          value: shap.medication ?? 0,
+          detail: shap.details?.medication ?? '',
+          available: shap.available?.medication ?? true
+        },
+        {
+          label: 'Symptoms & Sleep',
+          value: shap.lifestyle ?? 0,
+          detail: shap.details?.lifestyle ?? '',
+          available: shap.available?.lifestyle ?? true
+        }
       ]
-    : [
-        { label: 'Vital Trend', impact: 12 },
-        { label: 'Medication Adherence', impact: 28 },
-        { label: 'Sleep Quality', impact: 8 }
-      ];
+    : [];
 
   const activity = [
     ...vitals.slice(0, 3).map((v: any) => ({
@@ -91,6 +115,14 @@ export default async function PatientDashboard() {
     levelByDay[k] = a.level;
   }
 
+  // Personal-baseline band for hero strip
+  const bpMean = baseline?.bp_systolic_mean ?? null;
+  const bpStd = baseline?.bp_systolic_std ?? null;
+  const baselineBpLabel =
+    bpMean != null && bpStd != null
+      ? `Your normal: ${bpMean.toFixed(0)} ± ${(1.5 * bpStd).toFixed(0)} mmHg`
+      : null;
+
   return (
     <AppShell role="patient" user={{ name: userName }}>
       <div className="space-y-6">
@@ -105,6 +137,16 @@ export default async function PatientDashboard() {
                   : `${LEVEL_LABEL[topLevel as string]} — review alerts below`}
               </span>
             </div>
+            {baselineBpLabel && (
+              <p className="mt-1 text-xs text-muted-foreground">
+                {baselineBpLabel} <span className="opacity-60">· based on last {baseline?.data_points_count ?? 0} entries</span>
+              </p>
+            )}
+            {analysis.insufficientData && (
+              <p className="mt-1 text-xs text-amber-600">
+                Log {analysis.insufficientData.required - analysis.insufficientData.current} more day(s) to unlock forecast & insights.
+              </p>
+            )}
           </div>
           <div className="grid grid-cols-3 gap-3 lg:gap-3">
             <VitalTile
@@ -141,6 +183,12 @@ export default async function PatientDashboard() {
           >
             <TrendingUp className="h-4 w-4" /> View Trends
           </Link>
+          <Link
+            href="/patient/report"
+            className="inline-flex items-center gap-2 rounded-lg border bg-card px-5 py-3 text-sm font-semibold text-foreground shadow-sm transition hover:bg-muted"
+          >
+            <FileText className="h-4 w-4" /> Emergency Report
+          </Link>
         </div>
 
         <div className="grid gap-5 lg:grid-cols-3">
@@ -160,7 +208,11 @@ export default async function PatientDashboard() {
                   </div>
                 )}
               </div>
-              <ForecastChart history={vitals.slice().reverse()} forecast={forecast} />
+              <ForecastChart
+                history={vitals.slice().reverse()}
+                forecast={forecast}
+                baseline={bpMean != null && bpStd != null ? { mean: bpMean, std: bpStd } : null}
+              />
             </div>
 
             {openAlerts.length > 0 && (
@@ -181,6 +233,12 @@ export default async function PatientDashboard() {
 
           <div className="space-y-5">
             <AIDailySuggestion patientId={patient.id} />
+            <DailyRoutineChecklist
+              patientId={patient.id}
+              medications={medications}
+              vitalsLoggedToday={vitalsLoggedToday}
+              conditions={conditions}
+            />
             <StabilityFactors factors={factors} />
             <HotlineCard patientId={patient.id} />
           </div>

@@ -38,7 +38,7 @@ type Explanation = {
   source: string;
 };
 
-export function HealthStatsPanel({ rows }: { rows: any[] }) {
+export function HealthStatsPanel({ rows, patientId }: { rows: any[]; patientId?: string }) {
   const stats = computeStats(rows);
   const [hover, setHover] = useState<Metric | null>(null);
   const [cache, setCache] = useState<Record<string, Explanation | 'loading'>>({});
@@ -51,7 +51,7 @@ export function HealthStatsPanel({ rows }: { rows: any[] }) {
         method: 'POST',
         credentials: 'same-origin',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ metric: s.metric, value: s.rawValue, recent: s.recent })
+        body: JSON.stringify({ metric: s.metric, value: s.rawValue, recent: s.recent, patient_id: patientId })
       });
       const json = await res.json();
       if (json?.ok) setCache((c) => ({ ...c, [s.metric]: json.data }));

@@ -42,6 +42,16 @@ export type ShapBreakdown = {
   medication: number;
   lifestyle: number;
   raw?: { bp_score: number; med_score: number; lifestyle_score: number };
+  details?: {
+    vital_change: string;
+    medication: string;
+    lifestyle: string;
+  };
+  available?: {
+    vital_change: boolean;
+    medication: boolean;
+    lifestyle: boolean;
+  };
 };
 
 export type Forecast = {

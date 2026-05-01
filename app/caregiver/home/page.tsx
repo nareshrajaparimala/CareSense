@@ -15,7 +15,8 @@ export default async function CaregiverHome() {
   const { data: links } = await supabaseAdmin
     .from('caregiver_link')
     .select('patient_id, relationship')
-    .eq('caregiver_id', session.user.id);
+    .eq('caregiver_id', session.user.id)
+    .eq('status', 'accepted');
 
   const linkRows = (links ?? []) as { patient_id: string; relationship: string | null }[];
 

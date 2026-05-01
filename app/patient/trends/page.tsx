@@ -51,7 +51,7 @@ export default async function TrendsPage() {
           </Card>
         ) : (
           <>
-            <HealthStatsPanel rows={rows} />
+            <HealthStatsPanel rows={rows} patientId={patient.id} />
 
             <Card>
               <CardHeader>

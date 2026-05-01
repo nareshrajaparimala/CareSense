@@ -1,11 +1,13 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { supabaseAdmin } from '@/lib/supabase/admin';
 import { callGroq } from '@/lib/ai/groq';
 
 type Body = {
   metric: 'bp' | 'glucose' | 'hr' | 'spo2' | 'sleep' | 'mood';
   value: number | string | null;
   recent: Array<number | null>;
+  patient_id?: string;
 };
 
 const META: Record<Body['metric'], { label: string; unit: string; range: string }> = {
@@ -30,16 +32,33 @@ export async function POST(req: Request) {
   const meta = META[body.metric];
   const recentStr = body.recent.filter((n) => n != null).join(', ') || 'no recent values';
 
+  // Pull patient context (conditions, age) so the AI can personalise the explanation.
+  let patientCtx = '';
+  if (body.patient_id) {
+    const { data: patient } = await supabaseAdmin
+      .from('patient')
+      .select('user_id, age, sex, conditions')
+      .eq('id', body.patient_id)
+      .maybeSingle();
+    if (patient && (patient as any).user_id === user.id) {
+      const conditions = ((patient as any).conditions ?? []) as string[];
+      patientCtx = `\nPatient context (use it to tailor the explanation):
+- Age: ${(patient as any).age ?? 'unknown'}
+- Sex: ${(patient as any).sex ?? 'unknown'}
+- Conditions: ${conditions.length ? conditions.join(', ') : 'none recorded'}`;
+    }
+  }
+
   const prompt = `You are CareSense, a chronic-care AI explainer.
 Metric: ${meta.label} (${meta.unit}). Reference: ${meta.range}.
 Latest value: ${body.value ?? 'unknown'}
-Recent values (newest first): ${recentStr}
+Recent values (newest first): ${recentStr}${patientCtx}
 
 Return ONLY valid JSON:
 {
   "level": "stable" | "watch" | "trend" | "risk" | "critical",
-  "factor": "the single biggest risk-causing factor in plain English (max 12 words)",
-  "reason": "one short sentence explaining WHY this is the factor based on the numbers"
+  "factor": "the single biggest risk-causing factor for THIS patient in plain English (max 12 words)",
+  "reason": "one short sentence explaining WHY based on the numbers and the patient's conditions"
 }`;
 
   const out = await callGroq(

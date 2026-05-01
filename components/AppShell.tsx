@@ -7,6 +7,7 @@ const NAV_BY_ROLE: Record<'patient' | 'caregiver' | 'doctor', NavItem[]> = {
     { href: '/patient/log', label: 'Log Vitals', icon: 'log' },
     { href: '/patient/trends', label: 'Trends', icon: 'trends' },
     { href: '/patient/meds', label: 'Medications', icon: 'log' },
+    { href: '/patient/support', label: 'Care Team', icon: 'doctor' },
     { href: '/patient/settings', label: 'Settings', icon: 'family' }
   ],
   caregiver: [

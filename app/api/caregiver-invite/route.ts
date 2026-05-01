@@ -61,18 +61,19 @@ export async function POST(req: Request) {
     );
   }
 
-  // Insert link
+  // Insert link as pending — caregiver must accept before monitoring starts.
   const { data: link, error: linkErr } = await supabaseAdmin
     .from('caregiver_link')
     .upsert(
       {
         caregiver_id: caregiverUser.id,
         patient_id: (patient as any).id,
-        relationship: parsed.data.relationship ?? null
+        relationship: parsed.data.relationship ?? null,
+        status: 'pending'
       },
       { onConflict: 'caregiver_id,patient_id' }
     )
-    .select('id, relationship, caregiver_id')
+    .select('id, relationship, caregiver_id, status')
     .single();
 
   if (linkErr) return NextResponse.json({ ok: false, error: linkErr.message }, { status: 500 });

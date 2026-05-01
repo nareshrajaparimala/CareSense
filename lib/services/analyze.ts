@@ -5,8 +5,13 @@ import { computeShap } from '@/lib/ai/shap';
 import { forecast72hr } from '@/lib/ai/forecast';
 import { decideLevel } from '@/lib/ai/escalation';
 import { generateAlertExplanation } from '@/lib/ai/llm-explainer';
-import { CRITICAL_BP_SYSTOLIC, MIN_DATA_POINTS_FOR_FORECAST } from '@/lib/constants';
+import { CRITICAL_BP_SYSTOLIC } from '@/lib/constants';
 import type { Alert, AlertLevel, Baseline, Forecast, ShapBreakdown, Vital } from '@/types/domain';
+
+// Minimum vitals before baseline is meaningful (mean+std need ≥2; pick 2 to bootstrap fast).
+const MIN_BASELINE_POINTS = 2;
+// Minimum points before forecast/SHAP/alert pipeline runs.
+const MIN_PIPELINE_POINTS = 3;
 
 export type AnalyzeResult = {
   level: AlertLevel;
@@ -14,12 +19,14 @@ export type AnalyzeResult = {
   shap: ShapBreakdown | null;
   forecast: Forecast | null;
   alert: Alert | null;
+  baseline: Baseline | null;
+  insufficientData?: { current: number; required: number };
 };
 
 export async function analyzePatient(patientId: string): Promise<AnalyzeResult> {
   const sb = supabaseAdmin;
 
-  // 1. Fetch last 30 days of vitals
+  // 1. Fetch last 30 days of vitals (we slice to the proper window inside each helper).
   const { data: vitalsRows } = await sb
     .from('vitals_log')
     .select('*')
@@ -28,37 +35,36 @@ export async function analyzePatient(patientId: string): Promise<AnalyzeResult> 
     .limit(30);
   const vitals = (vitalsRows ?? []) as Vital[];
 
-  if (vitals.length < MIN_DATA_POINTS_FOR_FORECAST) {
-    return {
-      level: 'stable',
-      scores: { severity: 'normal', consecutiveDays: 0, missedPct: 0, sleepAvg: 7 },
-      shap: null,
-      forecast: null,
-      alert: null
-    };
-  }
-
-  // 2. Fetch / compute baseline
-  let { data: baselineRow } = await sb
-    .from('patient_baseline')
-    .select('*')
-    .eq('patient_id', patientId)
-    .maybeSingle();
-
-  let baseline = baselineRow as Baseline | null;
-  if (!baseline || (baseline.data_points_count ?? 0) < vitals.length - 5) {
+  // 2. Bootstrap baseline from day 1 — independent of pipeline gate.
+  // Always recompute on every analysis run: cheap, stays in sync with new logs,
+  // and avoids stale-baseline drift when a patient stops or resumes logging.
+  let baseline: Baseline | null = null;
+  if (vitals.length >= MIN_BASELINE_POINTS) {
     const computed = computeBaseline(patientId, vitals);
     await sb.from('patient_baseline').upsert(computed);
     baseline = computed;
   }
 
+  // 3. Insufficient-data short-circuit (after baseline write).
+  if (vitals.length < MIN_PIPELINE_POINTS || !baseline) {
+    return {
+      level: 'stable',
+      scores: { severity: 'normal', consecutiveDays: 0, missedPct: 0, sleepAvg: 7 },
+      shap: null,
+      forecast: null,
+      alert: null,
+      baseline,
+      insufficientData: { current: vitals.length, required: MIN_PIPELINE_POINTS }
+    };
+  }
+
   const latest = vitals[0];
 
-  // 3. Anomaly + consecutive
+  // 4. Anomaly + consecutive
   const bpAnomaly = detectAnomaly(latest.bp_systolic, baseline.bp_systolic_mean, baseline.bp_systolic_std);
   const consecutiveDays = countConsecutiveDeviations(vitals, baseline);
 
-  // 4. Medication adherence (last 7d)
+  // 5. Medication adherence (last 7d)
   const sevenDaysAgo = new Date(Date.now() - 7 * 86400_000).toISOString();
   const { data: medLogRows } = await sb
     .from('medication_log')
@@ -68,27 +74,36 @@ export async function analyzePatient(patientId: string): Promise<AnalyzeResult> 
   const medLog = (medLogRows ?? []) as { taken: boolean }[];
   const missedPct = medLog.length ? medLog.filter((m) => !m.taken).length / medLog.length : 0;
 
-  // 5. Sleep avg (last 7 vitals)
+  // 6. Sleep avg (last 7 vitals)
   const last7 = vitals.slice(0, 7);
   const sleepValues = last7.map((v) => v.sleep_hours).filter((n): n is number => n != null);
   const sleepAvg = sleepValues.length ? sleepValues.reduce((a, b) => a + b, 0) / sleepValues.length : 7;
 
-  // 6. SHAP
-  const shap = computeShap({ current: latest, baseline, medLog, sleep_hours_avg: sleepAvg });
+  // 7. SHAP — always computed.
+  const shap = computeShap({
+    current: latest,
+    baseline,
+    medLog,
+    sleep_hours_avg: sleepAvg,
+    recent: last7
+  });
 
-  // 7. Forecast on bp_systolic chronological
+  // 8. Forecast on bp_systolic chronological — last 7 entries are sliced inside.
   const bpSeries = [...vitals]
     .reverse()
     .map((v) => v.bp_systolic)
     .filter((n): n is number => n != null);
   const forecast = forecast72hr(bpSeries, CRITICAL_BP_SYSTOLIC);
 
-  // 8. Decide level
+  // 9. Decide level
   const level = decideLevel({
     severity: bpAnomaly.severity,
     consecutiveDays,
     forecastConfidence: forecast?.confidence ?? 0,
-    daysToCritical: forecast?.days_to_critical ?? 30
+    daysToCritical: forecast?.days_to_critical ?? 30,
+    currentBpSystolic: latest.bp_systolic,
+    currentGlucose: latest.glucose_mgdl,
+    currentSpo2: latest.spo2
   });
 
   let alert: Alert | null = null;
@@ -153,6 +168,7 @@ export async function analyzePatient(patientId: string): Promise<AnalyzeResult> 
     scores: { severity: bpAnomaly.severity, consecutiveDays, missedPct, sleepAvg },
     shap,
     forecast,
-    alert
+    alert,
+    baseline
   };
 }

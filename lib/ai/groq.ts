@@ -4,7 +4,7 @@ export type GroqMessage = { role: 'system' | 'user' | 'assistant'; content: stri
 
 export async function callGroq(
   messages: GroqMessage[],
-  opts: { maxTokens?: number; temperature?: number; json?: boolean } = {}
+  opts: { maxTokens?: number; temperature?: number; json?: boolean; model?: string } = {}
 ): Promise<string | null> {
   if (!process.env.GROQ_API_KEY) return null;
 
@@ -16,7 +16,7 @@ export async function callGroq(
         Authorization: `Bearer ${process.env.GROQ_API_KEY}`
       },
       body: JSON.stringify({
-        model: 'llama-3.1-8b-instant',
+        model: opts.model ?? 'llama-3.1-8b-instant',
         messages,
         max_tokens: opts.maxTokens ?? 400,
         temperature: opts.temperature ?? 0.4,

@@ -4,6 +4,7 @@ import { supabaseAdmin } from '@/lib/supabase/admin';
 import { AppShell } from '@/components/AppShell';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { CaregiverInviteForm, type CaregiverItem } from '@/components/patient/CaregiverInviteForm';
+import { ProfileForm } from '@/components/patient/ProfileForm';
 
 export const dynamic = 'force-dynamic';
 
@@ -12,10 +13,16 @@ export default async function PatientSettings() {
 
   const { data: patient } = await supabaseAdmin
     .from('patient')
-    .select('id, conditions, allergies, age, sex, address')
+    .select('id, conditions, allergies, age, sex, address, emergency_contact_name, emergency_contact_phone')
     .eq('user_id', session.user.id)
     .maybeSingle();
   if (!patient) redirect('/onboarding');
+
+  const { data: userProfile } = await supabaseAdmin
+    .from('user_profile')
+    .select('phone')
+    .eq('id', session.user.id)
+    .maybeSingle();
 
   const { data: links } = await supabaseAdmin
     .from('caregiver_link')
@@ -49,14 +56,19 @@ export default async function PatientSettings() {
             <CardDescription>Clinical details used to tailor alerts and forecasts.</CardDescription>
           </CardHeader>
           <CardContent>
-            <dl className="grid grid-cols-2 gap-y-3 text-sm sm:grid-cols-3">
-              <Item label="Name" value={session.profile.full_name} />
-              <Item label="Age" value={String((patient as any).age)} />
-              <Item label="Sex" value={(patient as any).sex ?? '—'} />
-              <Item label="Conditions" value={((patient as any).conditions ?? []).join(', ') || '—'} />
-              <Item label="Allergies" value={((patient as any).allergies ?? []).join(', ') || '—'} />
-              <Item label="Location" value={(patient as any).address ?? '—'} />
-            </dl>
+            <ProfileForm
+              initial={{
+                full_name: session.profile.full_name,
+                phone: (userProfile as any)?.phone ?? null,
+                age: (patient as any).age ?? null,
+                sex: (patient as any).sex ?? null,
+                conditions: (patient as any).conditions ?? [],
+                allergies: (patient as any).allergies ?? [],
+                emergency_contact_name: (patient as any).emergency_contact_name ?? null,
+                emergency_contact_phone: (patient as any).emergency_contact_phone ?? null,
+                address: (patient as any).address ?? null
+              }}
+            />
           </CardContent>
         </Card>
 
@@ -76,11 +88,3 @@ export default async function PatientSettings() {
   );
 }
 
-function Item({ label, value }: { label: string; value: string }) {
-  return (
-    <div>
-      <dt className="text-xs uppercase tracking-wide text-muted-foreground">{label}</dt>
-      <dd className="font-medium">{value}</dd>
-    </div>
-  );
-}

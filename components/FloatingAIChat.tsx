@@ -13,6 +13,7 @@ export function FloatingAIChat() {
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [listening, setListening] = useState(false);
+  const [voiceHint, setVoiceHint] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement | null>(null);
   const recognitionRef = useRef<any>(null);
 
@@ -46,26 +47,69 @@ export function FloatingAIChat() {
     }
   }
 
-  function startListening() {
+  async function startListening() {
+    setVoiceHint(null);
+
     const SR =
       (typeof window !== 'undefined' && ((window as any).SpeechRecognition || (window as any).webkitSpeechRecognition)) || null;
     if (!SR) {
-      alert('Voice input is not supported in this browser. Try Chrome or Edge.');
+      setVoiceHint('Voice input is not supported in this browser. Try Chrome or Edge.');
       return;
     }
+
+    if (!window.isSecureContext) {
+      setVoiceHint('Voice needs HTTPS or localhost.');
+      return;
+    }
+
+    // Pre-flight mic permission so the browser surfaces a permission prompt even
+    // if SpeechRecognition silently fails (common on macOS Chrome).
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      stream.getTracks().forEach((t) => t.stop());
+    } catch {
+      setVoiceHint('Microphone permission denied. Allow it in your browser settings.');
+      return;
+    }
+
     const recognition = new SR();
-    recognition.lang = 'en-US';
+    recognition.lang = navigator.language || 'en-US';
     recognition.interimResults = false;
+    recognition.continuous = false;
     recognition.maxAlternatives = 1;
-    recognition.onstart = () => setListening(true);
+
+    recognition.onstart = () => {
+      setListening(true);
+      setVoiceHint('Listening… speak now.');
+    };
     recognition.onend = () => setListening(false);
-    recognition.onerror = () => setListening(false);
+    recognition.onerror = (e: any) => {
+      setListening(false);
+      const code = e?.error ?? 'unknown';
+      const msg =
+        code === 'not-allowed' || code === 'service-not-allowed'
+          ? 'Microphone access blocked. Allow it in your browser site settings.'
+          : code === 'no-speech'
+          ? "Didn't catch that — try again."
+          : code === 'audio-capture'
+          ? 'No microphone detected.'
+          : code === 'network'
+          ? 'Voice network error. Check your connection.'
+          : 'Voice input failed. Try again.';
+      setVoiceHint(msg);
+    };
     recognition.onresult = (event: any) => {
       const transcript: string = event.results[0][0].transcript;
+      setVoiceHint(null);
       sendMessage(transcript);
     };
+
     recognitionRef.current = recognition;
-    recognition.start();
+    try {
+      recognition.start();
+    } catch {
+      setVoiceHint('Voice already running — release the mic and try again.');
+    }
   }
 
   function stopListening() {
@@ -123,6 +167,12 @@ export function FloatingAIChat() {
             )}
             <div ref={bottomRef} />
           </div>
+
+          {voiceHint && (
+            <div className="border-t bg-amber-50 px-3 py-1.5 text-[11px] text-amber-700">
+              {voiceHint}
+            </div>
+          )}
 
           <form
             onSubmit={(e) => {
