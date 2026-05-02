@@ -6,17 +6,16 @@ import { createClient } from '@/lib/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Separator } from '@/components/ui/separator';
+import { Eye, EyeOff } from 'lucide-react';
 
 // Demo accounts seeded by scripts/seed.ts — password is `password123`.
-// Used for instant one-click demo sign-in (no magic-link round-trip).
 const DEMO_PASSWORD = 'password123';
 const DEMO_EMAILS: Array<{ email: string; label: string; role: 'patient' | 'caregiver' | 'doctor' }> = [
-  { email: 'priya@caresense.demo',   label: 'Priya (Caregiver)',                    role: 'caregiver' },
-  { email: 'ramesh@caresense.demo',  label: 'Ramesh (Patient — deteriorating)',     role: 'patient' },
-  { email: 'lakshmi@caresense.demo', label: 'Lakshmi (Patient — stable)',           role: 'patient' },
-  { email: 'suresh@caresense.demo',  label: 'Suresh (Patient — resolved)',          role: 'patient' },
-  { email: 'dr.shah@caresense.demo', label: 'Dr. Shah (Doctor)',                    role: 'doctor' }
+  { email: 'priya@caresense.demo',   label: 'Priya — Caregiver',                  role: 'caregiver' },
+  { email: 'ramesh@caresense.demo',  label: 'Ramesh — Patient (deteriorating)',   role: 'patient' },
+  { email: 'lakshmi@caresense.demo', label: 'Lakshmi — Patient (stable)',         role: 'patient' },
+  { email: 'suresh@caresense.demo',  label: 'Suresh — Patient (resolved)',        role: 'patient' },
+  { email: 'dr.shah@caresense.demo', label: 'Dr. Shah — Doctor',                  role: 'doctor' }
 ];
 
 const HOME_FOR_ROLE: Record<string, string> = {
@@ -29,6 +28,9 @@ export function LoginForm() {
   const supabase = createClient();
   const router = useRouter();
   const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [mode, setMode] = useState<'password' | 'magic'>('password');
   const [sent, setSent] = useState(false);
   const [loading, setLoading] = useState(false);
   const [demoLoadingFor, setDemoLoadingFor] = useState<string | null>(null);
@@ -47,8 +49,21 @@ export function LoginForm() {
       setError(`Demo sign-in failed: ${error.message}. Run \`npm run seed\` to provision demo accounts.`);
       return;
     }
-    // Land directly on the role's dashboard — no email round-trip.
     router.push(HOME_FOR_ROLE[acct.role] ?? '/');
+    router.refresh();
+  };
+
+  const signInPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!email || !password) return;
+    setLoading(true); setError(null);
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    setLoading(false);
+    if (error) {
+      setError(error.message);
+      return;
+    }
+    router.push('/');
     router.refresh();
   };
 
@@ -75,47 +90,117 @@ export function LoginForm() {
   };
 
   return (
-    <div className="space-y-4">
-      <Button onClick={signInGoogle} variant="outline" size="lg" disabled={loading} className="w-full">
+    <div className="space-y-5">
+      <Button
+        onClick={signInGoogle}
+        variant="outline"
+        size="lg"
+        disabled={loading}
+        className="w-full border-slate-200 bg-white font-medium text-slate-800 hover:bg-slate-50"
+      >
         <GoogleIcon />
-        Continue with Google
+        <span className="ml-2">Continue with Google</span>
       </Button>
 
       <div className="relative">
-        <Separator />
-        <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-background px-2 text-xs uppercase text-muted-foreground">
-          or
-        </span>
+        <div className="absolute inset-0 flex items-center">
+          <span className="w-full border-t border-slate-200" />
+        </div>
+        <div className="relative flex justify-center text-xs">
+          <span className="bg-white px-3 text-slate-400">or</span>
+        </div>
       </div>
 
-      {sent ? (
-        <div className="rounded-md border border-green-200 bg-green-50 p-4 text-sm text-green-900">
+      {mode === 'magic' && sent ? (
+        <div className="rounded-md border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900">
           Check your email — we sent a magic link to <strong>{email}</strong>.
         </div>
-      ) : (
-        <form onSubmit={sendMagicLink} className="space-y-3">
+      ) : mode === 'password' ? (
+        <form onSubmit={signInPassword} className="space-y-3.5">
           <div className="space-y-1.5">
-            <Label htmlFor="email">Email</Label>
+            <Label htmlFor="email" className="text-xs font-medium text-slate-700">Email</Label>
             <Input
               id="email"
               type="email"
               required
+              autoComplete="email"
               placeholder="you@example.com"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
+              className="h-11"
             />
           </div>
-          <Button type="submit" size="lg" disabled={loading || !email} className="w-full">
+          <div className="space-y-1.5">
+            <Label htmlFor="password" className="text-xs font-medium text-slate-700">Password</Label>
+            <div className="relative">
+              <Input
+                id="password"
+                type={showPassword ? 'text' : 'password'}
+                required
+                autoComplete="current-password"
+                placeholder="••••••••"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="h-11 pr-10"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword((s) => !s)}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded p-1 text-slate-400 hover:text-slate-600"
+                aria-label={showPassword ? 'Hide password' : 'Show password'}
+              >
+                {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </button>
+            </div>
+          </div>
+          <Button type="submit" size="lg" disabled={loading || !email || !password} className="h-11 w-full">
+            {loading ? 'Signing in…' : 'Sign in'}
+          </Button>
+          <button
+            type="button"
+            onClick={() => { setMode('magic'); setError(null); }}
+            className="block w-full text-center text-xs font-medium text-slate-500 hover:text-slate-900"
+          >
+            Sign in with a magic link instead
+          </button>
+        </form>
+      ) : (
+        <form onSubmit={sendMagicLink} className="space-y-3.5">
+          <div className="space-y-1.5">
+            <Label htmlFor="email-magic" className="text-xs font-medium text-slate-700">Email</Label>
+            <Input
+              id="email-magic"
+              type="email"
+              required
+              autoComplete="email"
+              placeholder="you@example.com"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="h-11"
+            />
+          </div>
+          <Button type="submit" size="lg" disabled={loading || !email} className="h-11 w-full">
             {loading ? 'Sending…' : 'Send magic link'}
           </Button>
+          <button
+            type="button"
+            onClick={() => { setMode('password'); setError(null); setSent(false); }}
+            className="block w-full text-center text-xs font-medium text-slate-500 hover:text-slate-900"
+          >
+            Use email & password instead
+          </button>
         </form>
       )}
 
-      {error && <p className="text-sm text-destructive">{error}</p>}
+      {error && (
+        <p className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
+          {error}
+        </p>
+      )}
 
-      <details className="rounded-md border bg-muted/30 p-3 text-xs" open>
-        <summary className="cursor-pointer font-medium">
-          Demo accounts — instant sign-in (no email needed)
+      <details className="rounded-lg border border-slate-200 bg-slate-50/60 p-3 text-xs">
+        <summary className="cursor-pointer font-medium text-slate-700">
+          Demo accounts — instant sign-in
         </summary>
         <ul className="mt-3 space-y-1.5">
           {DEMO_EMAILS.map((a) => (
@@ -124,18 +209,18 @@ export function LoginForm() {
                 type="button"
                 disabled={demoLoadingFor !== null}
                 onClick={() => signInDemo(a)}
-                className="w-full rounded-md border bg-background px-3 py-2 text-left text-xs hover:border-primary hover:bg-accent disabled:opacity-50"
+                className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-left text-xs transition hover:border-slate-300 hover:bg-slate-50 disabled:opacity-50"
               >
-                <span className="font-medium text-primary">
+                <span className="font-medium text-slate-900">
                   {demoLoadingFor === a.email ? 'Signing in…' : a.label}
                 </span>
-                <span className="ml-1 text-muted-foreground">— {a.email}</span>
+                <span className="ml-1 text-slate-500">— {a.email}</span>
               </button>
             </li>
           ))}
         </ul>
-        <p className="mt-2 text-[10px] text-muted-foreground">
-          Sign-in uses the seeded password from <code>scripts/seed.ts</code>. Real users still get a magic link above.
+        <p className="mt-2 text-[10px] text-slate-400">
+          Demo accounts use the seeded password from <code>scripts/seed.ts</code>.
         </p>
       </details>
     </div>

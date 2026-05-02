@@ -98,8 +98,8 @@ export default async function DoctorDashboard() {
         </div>
 
         <Card>
-          <CardContent className="p-4">
-            <div className="grid grid-cols-12 gap-2 border-b pb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          <CardContent className="p-3 sm:p-4">
+            <div className="hidden grid-cols-12 gap-2 border-b pb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground md:grid">
               <div className="col-span-4">Patient</div>
               <div className="col-span-1">Age/Sex</div>
               <div className="col-span-4">Conditions</div>

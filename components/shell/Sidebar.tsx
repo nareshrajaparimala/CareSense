@@ -79,9 +79,11 @@ export function Sidebar({
       >
         <div className="flex items-center justify-between px-6 pb-2 pt-5">
           <Link href="/" className="flex items-center gap-2.5">
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-              <Heart className="h-5 w-5" fill="currentColor" />
-            </div>
+            <img
+              src="/caresense-logo.svg"
+              alt="CareSense"
+              className="h-9 w-9 rounded-lg"
+            />
             <div>
               <div className="text-base font-bold leading-tight">CareSense</div>
               <div className="text-[10px] font-semibold uppercase tracking-wider text-sidebar-muted">
