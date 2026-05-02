@@ -126,3 +126,11 @@ fetch last 7d sleep    ──► sleep avg
 - `lib/supabase/admin.ts` uses the service-role key — only imported by `app/api/*` and seed scripts.
 - The Leaflet map is `dynamic`-imported with `ssr: false` to avoid hydration issues.
 - LLM model is `gemini-1.5-flash`; fallback copy is deterministic so the demo never breaks.
+
+---
+
+# Welcome to Epoch '26
+
+- Upload any folder related to code.
+- If you have a separate backend and frontend, upload them in 2 different folders.
+- Upload the code before 11am.
